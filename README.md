@@ -2,7 +2,9 @@
 
 Clawdbot the Endgame is a local-first multi-agent operating system for high-signal work. It combines a Next.js command center, a Convex-backed mission graph, and specialized agents that can research, write, score jobs, assemble application packages, and learn from inbox feedback.
 
-![Clawdbot the Endgame dashboard](./MissionControl.png)
+![Clawdbot the Endgame](./clawdbot.jpg)
+
+![Mission Control interface](./Mission-Control.png)
 
 ## Product walkthrough
 
