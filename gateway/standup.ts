@@ -1,0 +1,166 @@
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
+import cron from "node-cron";
+import type { Doc } from "../convex/_generated/dataModel";
+
+const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+type Task = Doc<"tasks">;
+type Activity = Doc<"activity">;
+
+// Send message via Telegram
+async function sendTelegramMessage(message: string) {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!token || !chatId) {
+        console.log("[STANDUP] Telegram not configured, logging to console:");
+        console.log(message);
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.telegram.org/bot${token}/sendMessage`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                    parse_mode: "Markdown",
+                }),
+            }
+        );
+        const result = await response.json();
+        if (!result.ok) {
+            console.error("[STANDUP] Telegram send failed:", result);
+        }
+    } catch (error: unknown) {
+        const messageText = error instanceof Error ? error.message : String(error);
+        console.error("[STANDUP] Error sending to Telegram:", messageText);
+    }
+}
+
+// Generate the daily standup summary
+async function generateStandup() {
+    console.log("[STANDUP] Generating daily standup...");
+
+    try {
+        // Get all tasks
+        const tasks = await client.query(api.tasks.list, {}) as Task[];
+
+        // Get today's date boundary (midnight)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTimestamp = today.getTime();
+
+        // Get recent activity (last 24 hours)
+        const activity = await client.query(api.agents.recentActivity, {}) as Activity[];
+        const recentActivity = activity.filter(
+            (a) => a.timestamp >= todayTimestamp
+        );
+
+        // Categorize tasks
+        const completed = tasks.filter((t) => t.status === "done");
+        const inProgress = tasks.filter((t) => t.status === "in_progress");
+        const inReview = tasks.filter((t) => t.status === "review");
+        const assigned = tasks.filter((t) => t.status === "assigned");
+        const inbox = tasks.filter((t) => t.status === "inbox");
+
+        // Build the standup message
+        let message = `📋 *DAILY STANDUP - ${new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        })}*\n\n`;
+
+        // Completed today
+        message += `✅ *Completed* (${completed.length})\n`;
+        if (completed.length === 0) {
+            message += "_None_\n";
+        } else {
+            completed.slice(0, 5).forEach((t) => {
+                message += `• ${t.title}${t.assignedTo ? ` (@${t.assignedTo})` : ""}\n`;
+            });
+            if (completed.length > 5) {
+                message += `_...and ${completed.length - 5} more_\n`;
+            }
+        }
+        message += "\n";
+
+        // In Progress
+        message += `🔄 *In Progress* (${inProgress.length})\n`;
+        if (inProgress.length === 0) {
+            message += "_None_\n";
+        } else {
+            inProgress.forEach((t) => {
+                message += `• ${t.title}${t.assignedTo ? ` (@${t.assignedTo})` : ""}\n`;
+            });
+        }
+        message += "\n";
+
+        // In Review
+        if (inReview.length > 0) {
+            message += `👁️ *In Review* (${inReview.length})\n`;
+            inReview.forEach((t) => {
+                message += `• ${t.title}${t.assignedTo ? ` (@${t.assignedTo})` : ""}\n`;
+            });
+            message += "\n";
+        }
+
+        // Waiting (Assigned but not started)
+        if (assigned.length > 0) {
+            message += `⏳ *Assigned* (${assigned.length})\n`;
+            assigned.forEach((t) => {
+                message += `• ${t.title}${t.assignedTo ? ` (@${t.assignedTo})` : ""}\n`;
+            });
+            message += "\n";
+        }
+
+        // Inbox
+        if (inbox.length > 0) {
+            message += `📥 *Inbox* (${inbox.length} waiting)\n`;
+        }
+
+        // Agent Activity Summary
+        const agentActions = recentActivity.reduce<Record<string, number>>((acc, a) => {
+            acc[a.agentName] = (acc[a.agentName] || 0) + 1;
+            return acc;
+        }, {});
+
+        if (Object.keys(agentActions).length > 0) {
+            message += `\n🤖 *Agent Activity Today*\n`;
+            Object.entries(agentActions)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5)
+                .forEach(([name, count]) => {
+                    message += `• ${name}: ${count} actions\n`;
+                });
+        }
+
+        message += `\n_Generated by Clawdbot the Endgame_`;
+
+        await sendTelegramMessage(message);
+        console.log("[STANDUP] Daily standup sent successfully!");
+
+    } catch (error: unknown) {
+        const messageText = error instanceof Error ? error.message : String(error);
+        console.error("[STANDUP] Error generating standup:", messageText);
+    }
+}
+
+// Schedule standup at 6 PM every day
+export function startStandupScheduler() {
+    // "0 18 * * *" = Every day at 6:00 PM
+    cron.schedule("0 18 * * *", () => {
+        console.log("[STANDUP] Running scheduled daily standup...");
+        generateStandup();
+    });
+
+    console.log("[STANDUP] Scheduler initialized. Daily standup at 6:00 PM.");
+}
+
+// Export for manual trigger
+export { generateStandup };
