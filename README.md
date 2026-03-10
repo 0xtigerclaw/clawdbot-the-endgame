@@ -4,6 +4,14 @@ Clawdbot the Endgame is a local-first multi-agent operating system for high-sign
 
 ![Clawdbot the Endgame dashboard](./MissionControl.png)
 
+## Product walkthrough
+
+Watch the full product walkthrough here:
+
+- [Product walkthrough (MP4)](./docs/product-walkthrough.mp4)
+
+The video shows the operator UI, mission queue, agent orchestration flow, and the hiring workflow end to end.
+
 ## Why this project matters
 
 Most agent demos stop at "chat with one model." Clawdbot the Endgame is built around orchestration instead of chat:
