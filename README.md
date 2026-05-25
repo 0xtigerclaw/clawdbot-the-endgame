@@ -9,11 +9,6 @@ It is not just a chat UI. It is a control plane around an agent runtime: tasks c
 If you want to evaluate this project quickly:
 
 1. Watch the [product walkthrough (MP4)](./docs/product-walkthrough.mp4)
-2. Run locally with `./start.sh --detach`
-3. Open these surfaces:
-   - `http://localhost:3000`
-   - `http://localhost:3000/scout`
-   - `http://localhost:3000/setup`
 
 This gives a compact view of the operator UI, multi-agent orchestration flow, source ingestion, and Scout intelligence loop.
 
