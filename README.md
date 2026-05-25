@@ -1,8 +1,12 @@
 # Clawdbot the Endgame
 
-Clawdbot the Endgame is a local-first **Mission Control** system for running, observing, and improving multi-agent workflows.
+Clawdbot - the Endgame is a local-first Mission Control system for agentic AI: a full-stack control plane for running, observing, reviewing, and improving multi-agent workflows.
 
-It is not just a chat UI. It is a control plane around an agent runtime: tasks come in, the gateway routes work to specialist agents, outputs are reviewed, and harnesses decide whether agent work is safe and useful enough to move downstream.
+It combines a persistent mission graph, an OpenClaw Gateway orchestrator, specialist agents, source ingestion, structured memory, human approval loops, and harnesses that score whether agent outputs are valid, grounded, and useful enough to move downstream.
+
+The system is built around real operational questions: who owns the task, what context did the agent see, what did it produce, what passed, what failed, what should be retried, and what becomes part of memory.
+
+The vision is to make agents work like an engineered operation: stateful, inspectable, improvable, and trusted across long-running workflows.
 
 ## Start here (2-minute view)
 
