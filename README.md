@@ -11,11 +11,11 @@ If you want to evaluate this project quickly:
 1. Watch the [product walkthrough (MP4)](./docs/product-walkthrough.mp4)
 2. Run locally with `./start.sh --detach`
 3. Open these surfaces:
-   - `http://localhost:3000/jobs`
-   - `http://localhost:3000/applications`
-   - `http://localhost:3000/setup/email`
+   - `http://localhost:3000`
+   - `http://localhost:3000/scout`
+   - `http://localhost:3000/setup`
 
-This gives a complete view of the operator UI, multi-agent orchestration flow, and hiring execution loop.
+This gives a compact view of the operator UI, multi-agent orchestration flow, source ingestion, and Scout intelligence loop.
 
 ![Clawdbot the Endgame](./clawdbot.jpg)
 
