@@ -119,6 +119,91 @@ The system has four main layers:
    - The LLM/tool runtime performs the actual latent work
    - Outputs are stored back into Convex for review and downstream use
 
+## Memory architecture
+
+Memory in Mission Control is a layered system that separates runtime state, reusable mission experience, source intelligence, and operator logs.
+
+```mermaid
+flowchart TD
+    INPUT["Mission input<br/>user, Telegram, scheduler, Scout source"] --> TASK["Task state<br/>Convex tasks + workflow"]
+    TASK --> GW["OpenClaw Gateway<br/>builds agent prompt"]
+
+    GW --> RAG["Mission memory retrieval<br/>api.memory.searchMemories"]
+    RAG --> MEM["memories table<br/>OpenAI text-embedding-3-small<br/>1536-d vector index"]
+
+    GW -.-> KB["Knowledge retrieval available<br/>api.knowledge.searchKnowledge"]
+    KB --> CK["company_knowledge table<br/>Voyage embeddings<br/>document chunks + metadata"]
+
+    GW -.-> GRAPH["GraphRAG retrieval available<br/>api.graph.queryKnowledgeGraph"]
+    GRAPH --> KG["graph_nodes + graph_edges<br/>entities, relationships, neighborhoods"]
+
+    MEM --> PROMPT["Agent prompt<br/>task + identity + prior output + retrieved context"]
+    CK --> PROMPT
+    KG --> PROMPT
+    TASK --> PROMPT
+
+    PROMPT --> AGENT["Specialist agent"]
+    AGENT --> OUTPUT["Output stored on task"]
+    OUTPUT --> REVIEW["Tigerclaw review"]
+    REVIEW --> APPROVED{"Approved?"}
+
+    APPROVED -- "Yes" --> STORE["api.memory.storeMemory<br/>approved mission report"]
+    STORE --> MEM
+    APPROVED -- "No" --> REVISION["Feedback loop<br/>return to previous agent"]
+    REVISION --> TASK
+
+    AGENT --> LOCAL["Local operator memory<br/>memory/WORKING.md<br/>memory/daily/YYYY-MM-DD.md"]
+    LOCAL --> OBS["Audit trail<br/>debug logs, heartbeats, handoffs"]
+```
+
+The current implementation has five memory layers:
+
+1. **Task state memory**
+   - Stored in Convex task records: title, description, status, workflow, current step, assigned agent, output, and feedback.
+   - This is the system's immediate working state. It tells the gateway what exists, who owns it, what has already happened, and what should happen next.
+
+2. **Mission memory**
+   - Implemented in `convex/memory.ts` and the `memories` table.
+   - Approved mission reports are embedded with OpenAI `text-embedding-3-small` and stored with `agentName`, `taskId`, `content`, tags, timestamp, and a 1536-dimensional vector index.
+   - Before an agent runs, the gateway searches similar past missions with `api.memory.searchMemories` and injects the top matches into the prompt as relevant past experience.
+
+3. **Knowledge base memory**
+   - Implemented in `convex/knowledge.ts` and the `company_knowledge` table.
+   - Documents are chunked by section, embedded with Voyage, stored with source/version/audience metadata, and retrieved through vector search.
+   - This is for reusable factual context: company docs, positioning, pitch material, technical notes, and audience-specific reference material. The retrieval action exists today and can be wired into specific agent flows when a task needs canonical company context.
+
+4. **Graph memory**
+   - Implemented in `convex/graph.ts` with `graph_nodes` and `graph_edges`.
+   - Nodes represent entities or concepts; edges represent relationships. Query expansion plus vector search retrieves a local neighborhood instead of a flat chunk list.
+   - This is useful when the agent needs relationship-aware context: who connects to what, why two ideas are related, or which dependencies sit around a concept. Like the knowledge base, this is implemented as a retrieval capability that can be attached to targeted workflows.
+
+5. **Local operator memory**
+   - Implemented in `services/memory.ts` under the ignored local `memory/` directory.
+   - `WORKING.md` tracks active task context, `MEMORY.md` can hold long-term local notes, and `daily/YYYY-MM-DD.md` captures gateway events, Telegram tasks, heartbeats, and debug traces.
+   - This stays out of Git because it can contain private runtime history.
+
+Scout adds a sixth practical layer: **source and artifact memory**. Links discovered by Curie are stored in `scouted_links` with URL, title, summary, tags, quality score, status, feedback, and optional task linkage. That gives the system memory of what was found, what was reviewed, what was approved, and what should not be resurfaced.
+
+The read/write loop is intentionally simple:
+
+1. A mission enters Convex as task state.
+2. The gateway pulls task state, previous output, agent identity, and relevant retrieved memory.
+3. The agent performs the latent work.
+4. Output is stored back on the task.
+5. Tigerclaw approves or sends it back for revision.
+6. Approved work is embedded into long-term mission memory.
+7. Local daily logs record the operational trace.
+
+This separation matters because memory and trust solve different problems. Memory gives an agent context. Harnesses decide whether the agent used that context correctly. A retrieved memory should improve a run, but it should never silently override a task contract, source constraint, or deterministic harness check.
+
+### Memory limitations and next steps
+
+- Retrieval quality is not yet evaluated with dedicated retrieval evals.
+- Mission memory stores approved reports, but it does not yet summarize, deduplicate, expire, or resolve contradictory memories.
+- The gateway currently retrieves a small number of similar memories by task title; richer retrieval should use task description, agent role, source metadata, and recency.
+- Knowledge base, mission memory, graph memory, and Scout links are separate stores; a future memory router should decide which store to query for each agent/task type.
+- Memory writes should eventually include provenance, confidence, source citations, and privacy labels so downstream agents can distinguish facts from interpretations.
+
 ## Agent roster
 
 | Agent | Role | Typical work |
