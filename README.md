@@ -12,7 +12,7 @@ The vision is to make agents work like an engineered operation: stateful, inspec
 
 If you want to evaluate this project quickly:
 
-1. Watch the [product walkthrough (MP4)](./docs/product-walkthrough.mp4)
+1. Watch the [product walkthrough (MP4)]([./docs/product-walkthrough.mp4](https://youtu.be/Qq0DdTmlFNI))
 
 This gives a compact view of the operator UI, multi-agent orchestration flow, source ingestion, and Scout intelligence loop.
 
